@@ -24,19 +24,19 @@ class RouterNode():
     def __init__(self, ID, sim, costs):
         self.myID = ID
         self.sim = sim
-        self.table = [0 for i in range(self.sim.NUM_NODES)]
+        self.routetable = [0 for i in range(self.sim.NUM_NODES)]
         self.myGUI = GuiTextArea.GuiTextArea("  Output window for Router #" + str(ID) + "  ")
 
         self.costs = deepcopy(costs)
         for i in range(self.sim.NUM_NODES):
             if(self.costs[i] == self.sim.INFINITY):
-                self.table[i] = self.sim.INFINITY
+                self.routetable[i] = self.sim.INFINITY
             else:
-                self.table[i] = i
+                self.routetable[i] = i
 
-        print("Costs", self.myID, ":", self.costs, "| Next hop:", self.table)
+        print("Costs", self.myID, ":", self.costs, "| Next hop:", self.routetable)
         
-        tmpPkt = RouterPacket.RouterPacket(self.myID, 0, [6,2,1])
+        tmpPkt = RouterPacket.RouterPacket(self.myID, 0, [6,2,1,1])
         self.sendUpdate(tmpPkt)
 
     # --------------------------------------------------
@@ -57,8 +57,9 @@ class RouterNode():
     def printDistanceTable(self):
         self.myGUI.println("Current table for " + str(self.myID) +
                            "  at time " + str(self.sim.getClocktime()))
-        #self.myGUI.println("Node " + str(self.myID) + ": " + str(self.costs))
-
+        self.myGUI.println("Distance vector and route:")
+        self.myGUI.println("cost    |" + str(self.costs))
+        self.myGUI.println("route    |" + str(self.routetable))
 
     # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
