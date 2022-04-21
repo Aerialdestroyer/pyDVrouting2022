@@ -21,6 +21,14 @@ class RouterNode():
     # node 2: 3   1   0   2		|   nexthop: 0   1   2   3 
     # node 3: 7   inf 2   0		|   nexthop: 0   inf 2   3
 
+    # Example tables: Figure 5 (3 nodes)
+    # Node 0:
+    #   Costs: [0,4,1]
+    #   routeTable: [0,1,2]
+    #   distanceTable: [0,4,1]
+    #                  [inf,0,inf]
+    #                  [inf,inf,0]
+
     # --------------------------------------------------
     def __init__(self, ID, sim, costs):
         self.myID = ID
@@ -47,21 +55,24 @@ class RouterNode():
                 else:
                     self.distanceTable[y][x] = self.sim.INFINITY
 
-        print("Node:", self.myID)
-        print("\t# Poison reverse:", self.sim.POISONREVERSE)
-        print("\t# Cost changes:", self.sim.LINKCHANGES)
-        print("\t# Distance table:")
-        for x in self.distanceTable:
-            print("\t\t#", x)
-        print("\t# Route table:")
-        print("\t\t#", self.routeTable)
-        #self.updateAll()
+        # print("Node:", self.myID)
+        # print("\t# Poison reverse:", self.sim.POISONREVERSE)
+        # print("\t# Cost changes:", self.sim.LINKCHANGES)
+        # print("\t# Distance table for " + str(self.myID) + ":")
+        # for x in self.distanceTable:
+        #     print("\t\t#", x)
+        # print("\t# Route table:")
+        # print("\t\t#", self.routeTable)
+        self.updateAll()
         
 
     # --------------------------------------------------
     def recvUpdate(self, pkt):
-        #print("Packet recieved!", pkt.sourceid, pkt.destid, pkt.mincost)
-        if(self.bellmanFord(pkt)):
+        #Update our distance table with latest from neighbour
+        self.distanceTable[pkt.sourceid] = pkt.mincost
+
+        #If bellmanFord changed something then update neighbours
+        if(self.bellmanFord()):
             self.updateAll()
 
 
@@ -97,11 +108,11 @@ class RouterNode():
         self.myGUI.println("Distancetable:")
         self.printTableStart()
         for x in range(self.sim.NUM_NODES):
-            if(x != self.myID):
-                self.myGUI.print(" nbr" + str(x) + "    |\t\t")
-                for y in range(self.sim.NUM_NODES):
-                    self.myGUI.print(str(self.distanceTable[x][y]) + "\t")
-                self.myGUI.print('\n')
+            # if(x != self.myID):
+            self.myGUI.print(" nbr" + str(x) + "    |\t\t")
+            for y in range(self.sim.NUM_NODES):
+                self.myGUI.print(str(self.distanceTable[x][y]) + "\t")
+            self.myGUI.print('\n')
         self.myGUI.println("")
 
         # Print costs and routes
@@ -118,16 +129,25 @@ class RouterNode():
 
     # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
-        self.costs[dest] = newcost
-        self.updateAll()
+        pass
+        # self.costs[dest] = newcost
+        # self.updateAll()
 
     # --------------------------------------------------
     def bellmanFord(self):
-        changed = False
+        # Dx(y) = min { C(x,v) + Dv(y), Dx(y) } for each node y ∈ N
         for x in range(self.sim.NUM_NODES):
-            toCost = self.distanceTable[self.myID][x]
+            # nextNode = self.routeTable[x]
+            # toNext = self.distanceTable[self.myID][nextNode]
+            # nextToDest = self.distanceTable[nextNode][x]
+            # costEstimate = toNext + nextToDest
+            
             for y in range(self.sim.NUM_NODES):
+                currentCost = self.distanceTable[self.myID][y]
+                newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
                 
+                print(currentCost, newCost)
+
         # toCost = self.costs[pkt.sourceid]
         # for i in range(self.sim.NUM_NODES):
         #     if(self.costs[i] > pkt.mincost[i] + toCost):
@@ -139,4 +159,4 @@ class RouterNode():
         #         changed = True
         #         # print("New cost and route set in node:", self.myID)
         #         # print("Node:", i, " |  Src:", pkt.sourceid, " |  New cost:", self.costs[i], " |  Next hop:", self.routeTable[i], "\n")
-        # return changed
+        return False
