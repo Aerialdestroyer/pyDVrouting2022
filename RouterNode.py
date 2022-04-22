@@ -22,18 +22,28 @@ class RouterNode():
     # node 3: 7   inf 2   0		|   nexthop: 0   inf 2   3
 
     # Example tables: Figure 5 (3 nodes)
-    # Node 0:
-    #   Costs: [0,4,1]
-    #   routeTable: [0,1,2]
-    #   distanceTable: [0,4,1]
-    #                  [inf,0,inf]
-    #                  [inf,inf,0]
+    # Initially:
+    #   Node 0:
+    #       Costs: [0,4,1]
+    #       routeTable: [0,1,2]
+    #       distanceTable: [0,4,1]
+    #                      [inf,0,inf]
+    #                      [inf,inf,0]
+    # At end:
+    #   Node 0:
+    #       Costs: [0,4,1]
+    #       routeTable: [0,1,2]
+    #       distanceTable: [0,4,1]
+    #                      [4,0,5]
+    #                      [1,5,0]    
 
     # --------------------------------------------------
     def __init__(self, ID, sim, costs):
         self.myID = ID
         self.sim = sim
+        # routeTable contains next hop
         self.routeTable = [0 for i in range(self.sim.NUM_NODES)]
+        # distnceTable contains costs for us and all neighbours
         self.distanceTable =  [[0]*self.sim.NUM_NODES for i in range(self.sim.NUM_NODES)]
 
         self.myGUI = GuiTextArea.GuiTextArea("  Output window for Router #" + str(ID) + "  ")
@@ -83,15 +93,17 @@ class RouterNode():
 
     # --------------------------------------------------
     def updateAll(self):
+        newCosts = self.distanceTable[self.myID]
+        print("Updating all: sending costs:", newCosts)
         for i in range(self.sim.NUM_NODES):
             if(i != self.myID):
-                tmpPkt = RouterPacket.RouterPacket(self.myID, i, self.costs)
+                tmpPkt = RouterPacket.RouterPacket(self.myID, i, newCosts)
                 self.sendUpdate(tmpPkt)
 
 
     # --------------------------------------------------
     def printTableStart(self):
-        self.myGUI.print("     dst\t|")
+        self.myGUI.print("     dst\t|") 
         for n in range(self.sim.NUM_NODES):
             self.myGUI.print('\t' + str(n))
         self.myGUI.print("\n--------")
@@ -129,13 +141,16 @@ class RouterNode():
 
     # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
-        pass
+        # print("updateLinkCost called")
         # self.costs[dest] = newcost
+        # self.distanceTable[self.myID][dest] = newcost
         # self.updateAll()
+        pass
 
     # --------------------------------------------------
     def bellmanFord(self):
         # Dx(y) = min { C(x,v) + Dv(y), Dx(y) } for each node y ∈ N
+        updateNeighbours = False
         for x in range(self.sim.NUM_NODES):
             # nextNode = self.routeTable[x]
             # toNext = self.distanceTable[self.myID][nextNode]
@@ -146,17 +161,11 @@ class RouterNode():
                 currentCost = self.distanceTable[self.myID][y]
                 newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
                 
-                print(currentCost, newCost)
-
-        # toCost = self.costs[pkt.sourceid]
-        # for i in range(self.sim.NUM_NODES):
-        #     if(self.costs[i] > pkt.mincost[i] + toCost):
-        #         self.costs[i] = pkt.mincost[i] + toCost
-        #         if(self.costs[i] > (pkt.mincost[pkt.sourceid] + pkt.mincost[i])):
-        #             self.routeTable[i] = self.routeTable[pkt.sourceid]
-        #         else:
-        #             self.routeTable[i] = pkt.sourceid
-        #         changed = True
-        #         # print("New cost and route set in node:", self.myID)
-        #         # print("Node:", i, " |  Src:", pkt.sourceid, " |  New cost:", self.costs[i], " |  Next hop:", self.routeTable[i], "\n")
-        return False
+                if(newCost < currentCost):
+                    print("Setting new cost in node:", self.myID)
+                    print(" # Oldcost:", currentCost)
+                    print(" # New cost:", newCost)
+                    self.distanceTable[self.myID][y] = newCost
+                    self.routeTable[y] = self.routeTable[x]
+                    updateNeighbours = True
+        return updateNeighbours
