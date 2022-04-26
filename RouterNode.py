@@ -65,14 +65,6 @@ class RouterNode():
                 else:
                     self.distanceTable[y][x] = self.sim.INFINITY
 
-        # print("Node:", self.myID)
-        # print("\t# Poison reverse:", self.sim.POISONREVERSE)
-        # print("\t# Cost changes:", self.sim.LINKCHANGES)
-        # print("\t# Distance table for " + str(self.myID) + ":")
-        # for x in self.distanceTable:
-        #     print("\t\t#", x)
-        # print("\t# Route table:")
-        # print("\t\t#", self.routeTable)
         self.updateAll()
         
 
@@ -94,7 +86,7 @@ class RouterNode():
     # --------------------------------------------------
     def updateAll(self):
         newCosts = self.distanceTable[self.myID]
-        print("Updating all: sending costs:", newCosts)
+        #print("Updating all: sending costs:", newCosts)
         for i in range(self.sim.NUM_NODES):
             if(i != self.myID):
                 tmpPkt = RouterPacket.RouterPacket(self.myID, i, newCosts)
@@ -141,31 +133,50 @@ class RouterNode():
 
     # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
-        # print("updateLinkCost called")
-        # self.costs[dest] = newcost
-        # self.distanceTable[self.myID][dest] = newcost
-        # self.updateAll()
-        pass
+        # print("updateLinkCost called: | Updating distanceTable", self.distanceTable[self.myID][dest], "with", newcost, "| Destination:", dest)
+        self.costs[dest] = newcost
+        self.distanceTable[self.myID][dest] = newcost
+
+        # Works without but not optimal, rougly 2x faster with
+        if(self.bellmanFord()):
+            self.updateAll()
 
     # --------------------------------------------------
     def bellmanFord(self):
         # Dx(y) = min { C(x,v) + Dv(y), Dx(y) } for each node y ∈ N
+
         updateNeighbours = False
+        # First loop, for checking entire distanceTable
         for x in range(self.sim.NUM_NODES):
-            # nextNode = self.routeTable[x]
-            # toNext = self.distanceTable[self.myID][nextNode]
-            # nextToDest = self.distanceTable[nextNode][x]
-            # costEstimate = toNext + nextToDest
-            
+            nextNode = self.routeTable[x]                       # Which node is next after x
+            toNext = self.distanceTable[self.myID][nextNode]    # Distance to nextNode from us
+            nextToDest = self.distanceTable[nextNode][x]        # Distance from next to destination
+            costEstimate = toNext + nextToDest                  # Total cost, cost to next + cost from next to dest
+
+            # If stored cost is not estimated cost then we need to update our tables
+            if(self.distanceTable[self.myID][x] != costEstimate):
+                print(self.distanceTable[self.myID][x], costEstimate)              
+                # Check if new estimated cost is bigger than the saved cost in costs table, 
+                # costEstimate is incorrect
+                if(costEstimate > self.costs[x]):
+                    print("Cost estimate too big. Estimate:", costEstimate, "costs[x]:", self.costs[x]) 
+                    self.distanceTable[self.myID][x] = self.costs[x]    # Update distanceTable with costs
+                    self.routeTable[x] = x                              # Update routeTable
+                else:
+                    self.distanceTable[self.myID][x] = costEstimate     # Update distanceTable with estimate
+                updateNeighbours = True
+
+            # Second loop, for checking entire distanceTable
             for y in range(self.sim.NUM_NODES):
-                currentCost = self.distanceTable[self.myID][y]
+                currCost = self.distanceTable[self.myID][y]
                 newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
                 
-                if(newCost < currentCost):
-                    print("Setting new cost in node:", self.myID)
-                    print(" # Oldcost:", currentCost)
-                    print(" # New cost:", newCost)
+                if(newCost < currCost):
+                    #print("Setting new cost in node:", self.myID)
+                    #print(" # Oldcost:", currentCost)
+                    #print(" # New cost:", newCost)
                     self.distanceTable[self.myID][y] = newCost
+                    self.costs[y] = newCost
                     self.routeTable[y] = self.routeTable[x]
                     updateNeighbours = True
         return updateNeighbours
