@@ -176,7 +176,6 @@ class RouterNode():
                     #print(" # Oldcost:", currentCost)
                     #print(" # New cost:", newCost)
                     self.distanceTable[self.myID][y] = newCost
-                    self.costs[y] = newCost
                     self.routeTable[y] = self.routeTable[x]
                     updateNeighbours = True
         return updateNeighbours
