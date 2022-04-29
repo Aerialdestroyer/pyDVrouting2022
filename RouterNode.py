@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from msilib.schema import tables
-from re import T
 import GuiTextArea, RouterPacket, F
 from copy import deepcopy
 
@@ -64,7 +62,10 @@ class RouterNode():
                     self.distanceTable[self.myID][x] = self.costs[x]
                 else:
                     self.distanceTable[y][x] = self.sim.INFINITY
-
+        
+        print("Router node", self.myID)
+        print(" #Link cost change:", self.sim.LINKCHANGES)
+        print(" #Poison reverse:", self.sim.POISONREVERSE)
         self.updateAll()
         
 
@@ -88,7 +89,7 @@ class RouterNode():
         newCosts = self.distanceTable[self.myID]
         #print("Updating all: sending costs:", newCosts)
         for i in range(self.sim.NUM_NODES):
-            if(i != self.myID):
+            if(i != self.myID): # Don't send to ourself 
                 tmpPkt = RouterPacket.RouterPacket(self.myID, i, newCosts)
                 self.sendUpdate(tmpPkt)
 
@@ -155,7 +156,7 @@ class RouterNode():
 
             # If stored cost is not estimated cost then we need to update our tables
             if(self.distanceTable[self.myID][x] != costEstimate):
-                print(self.distanceTable[self.myID][x], costEstimate)              
+                #print(self.distanceTable[self.myID][x], costEstimate)              
                 # Check if new estimated cost is bigger than the saved cost in costs table, 
                 # costEstimate is incorrect
                 if(costEstimate > self.costs[x]):
