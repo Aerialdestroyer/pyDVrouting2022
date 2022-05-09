@@ -2,6 +2,9 @@
 import GuiTextArea, RouterPacket, F
 from copy import deepcopy
 
+#### TODO ####
+# - Fix poison reverse, set correct mincost somehow
+
 class RouterNode():
     myID = None
     myGUI = None
@@ -18,22 +21,6 @@ class RouterNode():
     # node 1: 1   0   1   inf  	|   nexthop: 0   1   2   inf
     # node 2: 3   1   0   2		|   nexthop: 0   1   2   3 
     # node 3: 7   inf 2   0		|   nexthop: 0   inf 2   3
-
-    # Example tables: Figure 5 (3 nodes)
-    # Initially:
-    #   Node 0:
-    #       Costs: [0,4,1]
-    #       routeTable: [0,1,2]
-    #       distanceTable: [0,4,1]
-    #                      [inf,0,inf]
-    #                      [inf,inf,0]
-    # At end:
-    #   Node 0:
-    #       Costs: [0,4,1]
-    #       routeTable: [0,1,2]
-    #       distanceTable: [0,4,1]
-    #                      [4,0,5]
-    #                      [1,5,0]    
 
     # --------------------------------------------------
     def __init__(self, ID, sim, costs):
@@ -70,6 +57,7 @@ class RouterNode():
     def recvUpdate(self, pkt):
         #Update our distance table with latest from neighbour
         self.distanceTable[pkt.sourceid] = pkt.mincost
+        # print("Setting new distanceTable[" + str(pkt.sourceid) + "] =" ,pkt.mincost)
 
         #If bellmanFord changed something then update neighbours
         if(self.bellmanFord()):
@@ -81,10 +69,22 @@ class RouterNode():
         # Probable poison reverse location
         if(self.sim.POISONREVERSE):
             for i in range(self.sim.NUM_NODES):
-                # If we find the destination id in distTable (we should always)
-                if(self.distanceTable[self.myID][i] == pkt.destid):
+                # Set cost to infinity for where ...
+                if(self.routeTable[i] == i):
+                    print(i, self.routeTable)
                     pkt.mincost[i] = self.sim.INFINITY
+                # if(self.distanceTable[self.myID][i] == pkt.destid):
+                #     pkt.mincost[i] = self.sim.INFINITY
         self.sim.toLayer2(pkt)
+        # if(self.sim.POISONREVERSE):
+        #     poisonTable = [0 for i in range(self.sim.NUM_NODES)]
+        #     for n in range(self.sim.NUM_NODES):
+        #         if(self.routeTable[n] == n):
+        #             poisonTable[n] = self.sim.INFINITY
+        #         else:
+        #             poisonTable[n] = self.distanceTable[self.myID][n]
+        #     pkt.mincost = poisonTable
+        # self.sim.toLayer2(pkt)
 
 
     # --------------------------------------------------
@@ -149,13 +149,10 @@ class RouterNode():
     # --------------------------------------------------
     def bellmanFord(self):
         # Dx(y) = min { C(x,v) + Dv(y), Dx(y) } for each node y ∈ N
-        print("bellmanFord entered:")
-
         updateNeighbours = False
 
         # First loop, for checking entire distanceTable, the x direction
         for x in range(self.sim.NUM_NODES):
-            print("# for x loop entered, x =", x)
             nextNode = self.routeTable[x]                       # Which node is next after x
             toNext = self.distanceTable[self.myID][nextNode]    # Distance to nextNode from us
             nextToDest = self.distanceTable[nextNode][x]        # Distance from next to destination
@@ -163,30 +160,69 @@ class RouterNode():
 
             # If stored cost is not estimated cost then we need to update our tables
             if(self.distanceTable[self.myID][x] != costEstimate):
-                print(" # Stored cost != estimate statement entered, dstTable[" + str(x) + "] cost:", self.distanceTable[self.myID][x], ",estimate:", costEstimate)              
                 # Check if new estimated cost is bigger than the saved cost in costs table, 
                 # costEstimate is incorrect
-                if(costEstimate > self.costs[x]):
-                    print("  # Cost estimate too big, resetting. Estimate:", costEstimate, ", costs[" + str(x) + "]:", self.costs[x]) 
+                if(costEstimate > self.distanceTable[self.myID][x]):
                     self.distanceTable[self.myID][x] = self.costs[x]    # Update distanceTable with costs
                     self.routeTable[x] = x                              # Update routeTable
+                    print("Reset distanceTable with costs table. costs =", self.costs)
                 else:
-                    print("  # Cost estimate smaller or equal to old cost, setting estimate:", costEstimate)
                     self.distanceTable[self.myID][x] = costEstimate     # Update distanceTable with estimate
                 updateNeighbours = True
 
             # Second loop, for checking entire distanceTable, the y direction
             for y in range(self.sim.NUM_NODES):
-                print(" # for y loop entered, y =", y)
                 currCost = self.distanceTable[self.myID][y]
                 newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
                 
                 if(newCost < currCost):
-                    print("  # New cost smaller than current, setting new cost in node:", self.myID)
                     #print(" # Oldcost:", currentCost)
                     #print(" # New cost:", newCost)
                     self.distanceTable[self.myID][y] = newCost
                     self.routeTable[y] = self.routeTable[x]
                     updateNeighbours = True
-        print("\n")
         return updateNeighbours
+    
+    # def bellmanFord(self):
+    #     # Dx(y) = min { C(x,v) + Dv(y), Dx(y) } for each node y ∈ N
+    #     print("bellmanFord entered:")
+
+    #     updateNeighbours = False
+
+    #     # First loop, for checking entire distanceTable, the x direction
+    #     for x in range(self.sim.NUM_NODES):
+    #         print("# for x =",x,"loop entered")
+    #         nextNode = self.routeTable[x]                       # Which node is next after x
+    #         toNext = self.distanceTable[self.myID][nextNode]    # Distance to nextNode from us
+    #         nextToDest = self.distanceTable[nextNode][x]        # Distance from next to destination
+    #         costEstimate = toNext + nextToDest                  # Total cost, cost to next + cost from next to dest
+
+    #         # If stored cost is not estimated cost then we need to update our tables
+    #         if(self.distanceTable[self.myID][x] != costEstimate):
+    #             print(" # Stored cost != estimate statement entered, dstTable[" + str(x) + "] cost:", self.distanceTable[self.myID][x], ",estimate:", costEstimate)              
+    #             # Check if new estimated cost is bigger than the saved cost in costs table, 
+    #             # costEstimate is incorrect
+    #             if(costEstimate > self.costs[x]):
+    #                 print("  # Cost estimate too big, resetting. Estimate:", costEstimate, ", costs[" + str(x) + "]:", self.costs[x]) 
+    #                 self.distanceTable[self.myID][x] = self.costs[x]    # Update distanceTable with costs
+    #                 self.routeTable[x] = x                              # Update routeTable
+    #             else:
+    #                 print("  # Cost estimate smaller or equal to old cost, setting estimate:", costEstimate)
+    #                 self.distanceTable[self.myID][x] = costEstimate     # Update distanceTable with estimate
+    #             updateNeighbours = True
+
+    #         # Second loop, for checking entire distanceTable, the y direction
+    #         for y in range(self.sim.NUM_NODES):
+    #             print(" # for y =",y,"loop entered, distanceTable["+str(x)+"]["+str(y)+"] =", self.distanceTable[x][y])
+    #             currCost = self.distanceTable[self.myID][y]
+    #             newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
+                
+    #             if(newCost < currCost):
+    #                 print("  # New cost smaller than current, setting new cost in node:", self.myID)
+    #                 #print(" # Oldcost:", currentCost)
+    #                 #print(" # New cost:", newCost)
+    #                 self.distanceTable[self.myID][y] = newCost
+    #                 self.routeTable[y] = self.routeTable[x]
+    #                 updateNeighbours = True
+    #     print("\n")
+    #     return updateNeighbours

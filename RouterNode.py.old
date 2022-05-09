@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+import GuiTextArea, RouterPacket, F
+from copy import deepcopy
+
+class RouterNode():
+    myID = None
+    myGUI = None
+    sim = None
+    costs = None
+    routeTable = None
+    distanceTable = None
+
+    # Access simulator variables with:
+    # self.sim.POISONREVERSE, self.sim.NUM_NODES, etc.
+
+    # --------------------------------------------------
+    def __init__(self, ID, sim, costs):
+        self.myID = ID
+        self.sim = sim
+        self.routeTable = [0 for i in range(self.sim.NUM_NODES)]
+        self.distanceTable =  [[0]*self.sim.NUM_NODES for i in range(self.sim.NUM_NODES)]
+
+        self.myGUI = GuiTextArea.GuiTextArea("  Output window for Router #" + str(ID) + "  ")
+        
+        self.costs = deepcopy(costs)
+
+        #Set up distanceTable with initial/known costs
+        for x in range(self.sim.NUM_NODES):
+            if(x != self.myID):
+                for y in range(self.sim.NUM_NODES):
+                    if(x == y):
+                        self.distanceTable[x][y] = 0
+                    elif(x == self.myID):
+                        self.distanceTable[self.myID][x] = self.costs[x]
+                    else:
+                        self.distanceTable[x][y] = self.sim.INFINITY
+        
+        #Set up routeTable with initial/known routes
+        for i in range(self.sim.NUM_NODES):
+            if(self.costs[i] == self.sim.INFINITY):
+                self.routeTable[i] = self.sim.INFINITY
+            else:
+                self.routeTable[i] = i
+
+        self.updateAll()
+
+    # --------------------------------------------------
+    def recvUpdate(self, pkt):
+        # Update tables
+        changesNeighbour = False
+        pktFrom = pkt.sourceid
+        for i in range(self.sim.NUM_NODES):
+            if (self.distanceTable[pktFrom][i] != pkt.mincost[i]):
+                self.distanceTable[pktFrom][i] = pkt.mincost[i]
+                changesNeighbour = True
+        
+            if(changesNeighbour):
+                changes = False
+                for node in range(self.sim.NUM_NODES):
+                    if(node != self.myID):
+                        oldCost = self.distanceTable[self.myID][node]
+                        currentCost = self.distanceTable[self.routeTable[node]][node] + self.distanceTable[self.myID][self.routeTable[node]]
+                        if(oldCost != currentCost):
+                            self.distanceTable[self.myID][node] = currentCost
+                            changes = True
+
+                        routeCost = self.distanceTable[self.myID][node]
+                        directCost = self.costs[node]
+                        if(directCost < routeCost):
+                            self.distanceTable[self.myID][node] = self.costs[node]
+                            self.routeTable[node] = node
+                            changes = True
+
+                        for x in range(self.sim.NUM_NODES):
+                            ourRouteCost = self.distanceTable[self.myID][x]
+                            otherRouteCost = self.distanceTable[self.myID][node] + self.distanceTable[node][x]
+                            if(ourRouteCost > otherRouteCost):
+                                self.distanceTable[self.myID][x] = otherRouteCost
+                                self.routeTable[x] = self.routeTable[node]
+                                changes = True
+        if(changes):
+            self.updateAll()
+
+
+
+    # --------------------------------------------------
+    def sendUpdate(self, pkt):
+        self.sim.toLayer2(pkt)
+
+
+    # --------------------------------------------------
+    def updateAll(self):
+        newCosts = self.distanceTable[self.myID]
+        for i in range(self.sim.NUM_NODES):
+            if((i != self.myID) and (self.costs[i] != self.sim.INFINITY)):
+                tmpPkt = RouterPacket.RouterPacket(self.myID, i, newCosts)
+                if(self.sim.POISONREVERSE):
+                    poisonTable = [0 for i in range(self.sim.NUM_NODES)]
+                    for n in range(self.sim.NUM_NODES):
+                        if(self.routeTable[n] == n):
+                            poisonTable[n] = self.sim.INFINITY
+                        else:
+                            poisonTable[n] = self.distanceTable[self.myID][n]
+                self.sendUpdate(tmpPkt)
+
+
+    # --------------------------------------------------
+    def printTableStart(self):
+        self.myGUI.print("     dst\t|") 
+        for n in range(self.sim.NUM_NODES):
+            self.myGUI.print('\t' + str(n))
+        self.myGUI.print("\n--------")
+        for n in range(self.sim.NUM_NODES):
+            self.myGUI.print("---------")
+        self.myGUI.print("\n")
+        
+
+    # --------------------------------------------------
+    def printDistanceTable(self):
+        self.myGUI.println("Current table for " + str(self.myID) +
+                           "  at time " + str(self.sim.getClocktime()))
+
+        # Print distance table
+        self.myGUI.println("Distancetable:")
+        self.printTableStart()
+        for x in range(self.sim.NUM_NODES):
+            # if(x != self.myID):
+            self.myGUI.print(" nbr" + str(x) + "    |\t\t")
+            for y in range(self.sim.NUM_NODES):
+                self.myGUI.print(str(self.distanceTable[x][y]) + "\t")
+            self.myGUI.print('\n')
+        self.myGUI.println("")
+
+        # Print costs and routes
+        self.myGUI.println("Costs and routes:")
+        self.printTableStart()
+        self.myGUI.print(" cost    |\t")
+        for i in range(self.sim.NUM_NODES):
+            self.myGUI.print('\t'+ str(self.costs[i]))
+        self.myGUI.print("\n")
+        self.myGUI.print(" route   |\t")
+        for i in range(self.sim.NUM_NODES):
+            self.myGUI.print('\t'+ str(self.routeTable[i]))
+        self.myGUI.print("\n\n")
+
+
+    # --------------------------------------------------
+    def updateLinkCost(self, dest, newcost):
+        self.costs[dest] = newcost
+
+        if(self.routeTable[dest] == dest):
+            self.distanceTable[self.myID][dest] = newcost
+        
+        if(self.costs[dest] < self.distanceTable[self.myID][dest]):
+            self.distanceTable[self.myID][dest] = self.costs[dest]
+            self.routeTable[dest] = dest
+        
+        for i in range(self.sim.NUM_NODES):
+            if(self.distanceTable[self.myID][i] > (self.distanceTable[self.myID][dest] + self.distanceTable[dest][i])):
+                self.distanceTable[self.myID][i] = self.distanceTable[self.myID][dest] + self.distanceTable[dest][i]
+                self.routeTable[i] = self.routeTable[dest]
+        self.updateAll()
