@@ -72,7 +72,7 @@ Cost Change On:
         Costs and routes:
             dst |       0       1       2
         -----------------------------------
-         cost   |       0       60      1
+         cost   |       0       51(60)  1
          route  |       0       2       2
 
     Four nodes (node 0):
@@ -87,8 +87,8 @@ Cost Change On:
         Costs and routes:
             dst |       0       1       2       3
         -------------------------------------------
-         cost   |       0       6       3       1
-         route  |       0       2       2       3
+         cost   |       0       4(6)    3       1
+         route  |       0       3       2       3
 
     Five nodes (node 0):
         Distancetable:
@@ -103,5 +103,5 @@ Cost Change On:
         Costs and routes:
             dst |       0       1       2       3       4
         ---------------------------------------------------
-         cost   |       0       6       3       1       1
+         cost   |       0       2(6)    3       1       1
          route  |       0       4       2       3       4
