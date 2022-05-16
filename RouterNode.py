@@ -3,7 +3,7 @@ import GuiTextArea, RouterPacket, F
 from copy import deepcopy
 
 #### TODO ####
-# - Fix poison reverse, set correct mincost somehow
+# - Nothing for now
 
 class RouterNode():
     myID = None
@@ -16,20 +16,17 @@ class RouterNode():
     # Access simulator variables with:
     # self.sim.POISONREVERSE, self.sim.NUM_NODES, etc.
 
-    # Example tables: Figure 5 (4 nodes)
-    # node 0: 0   1   3   7		|   nexthop: 0   1   2   3
-    # node 1: 1   0   1   inf  	|   nexthop: 0   1   2   inf
-    # node 2: 3   1   0   2		|   nexthop: 0   1   2   3 
-    # node 3: 7   inf 2   0		|   nexthop: 0   inf 2   3
-
     # --------------------------------------------------
     def __init__(self, ID, sim, costs):
         self.myID = ID
         self.sim = sim
+
         # routeTable contains next hop
         self.routeTable = [0 for i in range(self.sim.NUM_NODES)]
-        # distnceTable contains costs for us and all neighbours
-        self.distanceTable =  [[0]*self.sim.NUM_NODES for i in range(self.sim.NUM_NODES)]
+
+        # distnceTable contains costs for us and all neighbours, initiated the same
+        # way as connectcosts in RouterSimulator.py
+        self.distanceTable = [[0]*self.sim.NUM_NODES for i in range(self.sim.NUM_NODES)]
 
         self.myGUI = GuiTextArea.GuiTextArea("  Output window for Router #" + str(ID) + "  ")
         self.costs = deepcopy(costs)
@@ -57,48 +54,34 @@ class RouterNode():
     def recvUpdate(self, pkt):
         #Update our distance table with latest from neighbour
         self.distanceTable[pkt.sourceid] = pkt.mincost
-        # print("Setting new distanceTable[" + str(pkt.sourceid) + "] =" ,pkt.mincost)
 
-        #If bellmanFord changed something then update neighbours
+        # Run bellmanFord to check for changes and find better route if necessary
+        # If bellmanFord changed something then update neighbours
         if(self.bellmanFord()):
             self.updateAll()
 
 
     # --------------------------------------------------
     def sendUpdate(self, pkt):
-        # Probable poison reverse location
         if(self.sim.POISONREVERSE):
             for i in range(self.sim.NUM_NODES):
-                # Set cost to infinity for where ...
+                # Loop through all of routeTable to find ...
                 if((self.routeTable[i] == pkt.destid)):
-                    print(i, self.routeTable)
                     pkt.mincost[i] = self.sim.INFINITY
-                # if(self.distanceTable[self.myID][i] ==pkt.destid):
-                #     pkt.mincost[i] = self.sim.INFINITY
         self.sim.toLayer2(pkt)
-        # if(self.sim.POISONREVERSE):
-        #     poisonTable = [0 for i in range(self.sim.NUM_NODES)]
-        #     for n in range(self.sim.NUM_NODES):
-        #         if(self.routeTable[n] == n):
-        #             poisonTable[n] = self.sim.INFINITY
-        #         else:
-        #             poisonTable[n] = self.distanceTable[self.myID][n]
-        #     pkt.mincost = poisonTable
-        # self.sim.toLayer2(pkt)
-
 
     # --------------------------------------------------
     def updateAll(self):
         newCosts = self.distanceTable[self.myID]
-        #print("Updating all: sending costs:", newCosts)
         for i in range(self.sim.NUM_NODES):
-            if(i != self.myID ): # Don't send to ourself 
+            if(i != self.myID): # Don't send to ourself 
                 tmpPkt = RouterPacket.RouterPacket(self.myID, i, newCosts)
                 self.sendUpdate(tmpPkt)
 
 
     # --------------------------------------------------
     def printTableStart(self):
+        # Prints the start of our tables, needed multiple times thus function
         self.myGUI.print("     dst\t|") 
         for n in range(self.sim.NUM_NODES):
             self.myGUI.print('\t' + str(n))
@@ -137,13 +120,13 @@ class RouterNode():
 
     # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
-        # print("updateLinkCost called: | Updating distanceTable", self.distanceTable[self.myID][dest], "with", newcost, "| Destination:", dest)
-        # Setting both so that one can be used as 'memory' when calculating costEstimate later
+        # Setting both so that one can be used as 'memory' when calculating 
+        # costEstimate later
         self.costs[dest] = newcost
-        print("Updated costs in node " + str(self.myID) + ":", self.costs)
         self.distanceTable[self.myID][dest] = newcost
 
-        # Works without but not optimal, rougly 2x faster with
+        # Works without bellmanFord since we run on recieve but not optimal, 
+        # rougly 2x faster with
         if(self.bellmanFord()):
             self.updateAll()
 
@@ -161,12 +144,11 @@ class RouterNode():
             # to update our other tables accordingly.
             if(self.distanceTable[self.myID][x] != costEstimate):
                 # If costEstimate is worse than distanceTable cost
+                self.distanceTable[self.myID][x] = costEstimate     # Update distanceTable with estimat
                 if(costEstimate > self.costs[x]):
                     self.distanceTable[self.myID][x] = self.costs[x]    # Update distanceTable with costs
                     self.routeTable[x] = x                              # Update routeTable
                     print("Reset distanceTable with costs table. costs =", self.costs)
-                else:
-                    self.distanceTable[self.myID][x] = costEstimate     # Update distanceTable with estimate
                 updateNeighbours = True
 
             # Second loop, for checking entire distanceTable, the y direction
@@ -175,8 +157,6 @@ class RouterNode():
                 newCost = self.distanceTable[self.myID][x] + self.distanceTable[x][y]
                 
                 if(newCost < currCost):
-                    #print(" # Oldcost:", currentCost)
-                    #print(" # New cost:", newCost)
                     self.distanceTable[self.myID][y] = newCost
                     self.routeTable[y] = self.routeTable[x]
                     updateNeighbours = True
