@@ -13,9 +13,8 @@ class RouterNode():
     routeTable = None
     distanceTable = None
 
-    # Access simulator variables with:
-    # self.sim.POISONREVERSE, self.sim.NUM_NODES, etc.
-
+    # --------------------------------------------------
+    # Initialize all tables/variables                   
     # --------------------------------------------------
     def __init__(self, ID, sim, costs):
         self.myID = ID
@@ -51,6 +50,8 @@ class RouterNode():
         
 
     # --------------------------------------------------
+    # Recieves updates from other nodes
+    # --------------------------------------------------
     def recvUpdate(self, pkt):
         #Update our distance table with latest from neighbour
         self.distanceTable[pkt.sourceid] = pkt.mincost
@@ -62,14 +63,19 @@ class RouterNode():
 
 
     # --------------------------------------------------
+    # Sends updates to other nodes
+    # --------------------------------------------------
     def sendUpdate(self, pkt):
         if(self.sim.POISONREVERSE):
             for i in range(self.sim.NUM_NODES):
-                # Loop through all of routeTable to find ...
-                if((self.routeTable[i] == pkt.destid)):
+                # Find nodes that don't use a direct route (routes via another node to 
+                # destination)
+                if((self.routeTable[i] == pkt.destid) and (self.routeTable[i] != i)):
                     pkt.mincost[i] = self.sim.INFINITY
         self.sim.toLayer2(pkt)
 
+    # --------------------------------------------------
+    # Updates all nodes that are not us
     # --------------------------------------------------
     def updateAll(self):
         newCosts = self.distanceTable[self.myID]
@@ -80,8 +86,9 @@ class RouterNode():
 
 
     # --------------------------------------------------
+    # Prints the start of our tables, needed multiple times thus function
+    # --------------------------------------------------
     def printTableStart(self):
-        # Prints the start of our tables, needed multiple times thus function
         self.myGUI.print("     dst\t|") 
         for n in range(self.sim.NUM_NODES):
             self.myGUI.print('\t' + str(n))
@@ -90,6 +97,8 @@ class RouterNode():
             self.myGUI.print("---------")
         self.myGUI.print("\n")
 
+    # --------------------------------------------------
+    # Prints rest of tables
     # --------------------------------------------------
     def printDistanceTable(self):
         self.myGUI.println("Current table for " + str(self.myID) +
@@ -119,6 +128,8 @@ class RouterNode():
         self.myGUI.print("\n\n")
 
     # --------------------------------------------------
+    # Recieves updates when a link-cost change event happens
+    # --------------------------------------------------
     def updateLinkCost(self, dest, newcost):
         # Setting both so that one can be used as 'memory' when calculating 
         # costEstimate later
@@ -130,6 +141,8 @@ class RouterNode():
         if(self.bellmanFord()):
             self.updateAll()
 
+    # --------------------------------------------------
+    # Algorithm that finds best/fastest route
     # --------------------------------------------------
     def bellmanFord(self):
         updateNeighbours = False
