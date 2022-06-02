@@ -57,7 +57,7 @@ class RouterNode():
         self.distanceTable[pkt.sourceid] = pkt.mincost
 
         # Run bellmanFord to check for changes and find better route if necessary
-        # If bellmanFord changed something then update neighbours
+        # If bellmanFord changed something/found change then update neighbours
         if(self.bellmanFord()):
             self.updateAll()
 
