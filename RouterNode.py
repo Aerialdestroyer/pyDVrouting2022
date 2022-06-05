@@ -70,7 +70,7 @@ class RouterNode():
             for i in range(self.sim.NUM_NODES):
                 # Find nodes that don't use a direct route (routes via another node to 
                 # destination)
-                if((self.routeTable[i] == pkt.destid) and (self.routeTable[i] != i)):
+                if(self.routeTable[i] == pkt.destid):
                     pkt.mincost[i] = self.sim.INFINITY
         self.sim.toLayer2(pkt)
 
