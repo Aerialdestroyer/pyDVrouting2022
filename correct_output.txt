@@ -75,6 +75,20 @@ Cost Change On:
          cost   |       0       51(60)  1
          route  |       0       2       2
 
+    Three nodes (node 2):
+        Distancetable:
+            dst	|       0	    1	    2
+        -----------------------------------
+         nbr0   |		0	    51	    1	
+         nbr1   |		51	    0	    50	
+         nbr2   |		1	    50	    0	
+
+        Costs and routes:
+            dst	|	    0	    1	    2
+        -----------------------------------
+         cost   |		1	    50	    0
+         route  |		0	    1	    2
+
     Four nodes (node 0):
         Distancetable:
             dst |       0       1       2       3
