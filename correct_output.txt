@@ -105,3 +105,9 @@ Cost Change On:
         ---------------------------------------------------
          cost   |       0       2(6)    3       1       1
          route  |       0       4       2       3       4
+
+Cost Change and Poison Reverse On:
+    Should be same result as with cost change on, only faster?
+
+        if 0 routes through 2 to get to destination 1, then 0 will advertise 
+        to 2 that its distance to 1 is infinity
